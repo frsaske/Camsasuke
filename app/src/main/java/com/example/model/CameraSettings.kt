@@ -24,22 +24,25 @@ enum class ResolutionOption(
     val targetPixels: Int,
     val subtitle: String
 ) {
-    RETRO_0_4_MP("Retro 0.4 MP", 400_000, "~730 × 548 vintage digital resolution"),
-    LOW_1_2_MP("Low 1.2 MP", 1_200_000, "Early camera phone / web resolution"),
-    STANDARD("Standard", -1, "Native device camera output")
+    MP_0_3("0.3 MP", 300_000, "VGA ~640 × 480"),
+    MP_0_4("0.4 MP", 400_000, "Classic ~730 × 548"),
+    MP_0_5("0.5 MP", 500_000, "Retro ~800 × 600"),
+    MP_0_9("0.9 MP", 900_000, "Nostalgic ~1100 × 825"),
+    MP_1_0("1 MP", 1_000_000, "Early Digicam ~1154 × 866"),
+    MP_2_0("2 MP", 2_000_000, "2000s Sharp ~1632 × 1224"),
+    MP_3_0("3 MP", 3_000_000, "Vintage High-Res ~2000 × 1500")
 }
 
 enum class DateStampStyle(val label: String, val hexColor: Long) {
-    YELLOW("Retro Yellow", 0xFFFFB703),
+    YELLOW("Retro Amber", 0xFFFFB703),
     ORANGE("Vintage Orange", 0xFFFB8500),
     WHITE("Classic White", 0xFFFFFFFF)
 }
 
 enum class DateStampFormat(val label: String, val pattern: String) {
-    DD_MM_YYYY("22.10.2026", "dd.MM.yyyy"),
-    YY_MM_DD("'26 10 22", "''yy MM dd"),
-    YYYY_MM_DD("2026/10/22", "yyyy/MM/dd"),
-    DD_MM_YY_TIME("22.10.'26 14:30", "dd.MM.''yy HH:mm")
+    DD_MM_YYYY("23.10.2026", "dd.MM.yyyy"),
+    YY_MM_DD("'26 10 23", "''yy MM dd"),
+    YYYY_MM_DD("2026/10/23", "yyyy/MM/dd")
 }
 
 enum class CameraFlashMode {
@@ -55,21 +58,19 @@ enum class CameraLensFacing {
 
 data class CameraSettings(
     val defaultLens: CameraLensFacing = CameraLensFacing.BACK,
-    val resolution: ResolutionOption = ResolutionOption.RETRO_0_4_MP,
+    val resolution: ResolutionOption = ResolutionOption.MP_0_4,
     val aspectRatio: AspectRatioOption = AspectRatioOption.RATIO_4_3,
-    val flashMode: CameraFlashMode = CameraFlashMode.AUTO,
+    val flashMode: CameraFlashMode = CameraFlashMode.OFF,
     val mirrorSelfiePreview: Boolean = true,
     val saveSelfieMirrored: Boolean = false,
-    val showGrid: Boolean = false,
-    val showVintageHud: Boolean = true,
     val preset: RetroPreset = RetroPreset.ORIGINAL_RETRO,
     val filterIntensity: Float = 0.85f,
-    val grainAmount: Float = 0.30f,
-    val vignetteAmount: Float = 0.25f,
-    val dateStampEnabled: Boolean = false, // Disabled by default per requirements
+    val grainAmount: Float = 0.35f,
+    val dateStampEnabled: Boolean = true, // Default to vintage date stamp on like in user's photo
+    val sasukeWatermarkEnabled: Boolean = true, // Cool Sasuke signature in right corner
     val dateStampStyle: DateStampStyle = DateStampStyle.YELLOW,
     val dateStampFormat: DateStampFormat = DateStampFormat.DD_MM_YYYY,
-    val jpegQuality: Int = 90,
+    val soundEnabled: Boolean = true,
     val recordAudio: Boolean = true,
-    val videoQuality: String = "HD 720p"
+    val jpegQuality: Int = 92
 )

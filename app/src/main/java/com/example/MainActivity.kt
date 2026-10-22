@@ -165,8 +165,6 @@ fun RetroCamApp(
         is Screen.Settings -> {
             SettingsScreen(
                 settings = settings,
-                totalAlbumCount = mediaList.size,
-                nextFilenamePreview = nextFilenamePreview,
                 onSettingsChanged = { newSettings ->
                     settings = newSettings
                 },

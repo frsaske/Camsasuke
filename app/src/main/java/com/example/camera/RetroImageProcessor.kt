@@ -29,9 +29,14 @@ import kotlin.math.sqrt
 object RetroImageProcessor {
 
     /**
-     * Complete pipeline: crop aspect ratio -> resize to target resolution (e.g. 0.4 MP)
-     * -> apply retro color preset with intensity -> apply subtle digital sensor noise
-     * -> apply subtle vintage vignette -> optional date stamp.
+     * Complete pipeline:
+     * 1. Mirror if selfie
+     * 2. Crop to aspect ratio (4:3, 16:9, 1:1)
+     * 3. Downscale to exact target resolution (0.3 MP, 0.4 MP, 0.5 MP, 0.9 MP, 1 MP, 2 MP, 3 MP)
+     * 4. Apply consistent vintage CCD retro tone curve
+     * 5. Apply authentic sensor grain
+     * 6. Burn optional date stamp on bottom-left corner
+     * 7. Burn cool stylish Sasuke signature on bottom-right corner
      */
     suspend fun processImage(
         source: Bitmap,
@@ -39,7 +44,7 @@ object RetroImageProcessor {
         isFrontCamera: Boolean = false,
         captureTime: Long = System.currentTimeMillis()
     ): Bitmap = withContext(Dispatchers.Default) {
-        // 1. Mirroring if front camera and requested
+        // 1. Mirroring if requested
         val oriented = if (isFrontCamera && settings.saveSelfieMirrored) {
             val matrix = android.graphics.Matrix().apply { preScale(-1f, 1f) }
             Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
@@ -50,65 +55,51 @@ object RetroImageProcessor {
         // 2. Crop to aspect ratio
         val cropped = cropToAspectRatio(oriented, settings.aspectRatio)
 
-        // 3. Resize to selected resolution (AUTHENTIC 0.4 MP or 1.2 MP or Standard)
+        // 3. Resize to exact chosen MP resolution (e.g. 0.4 MP = ~730 x 548)
         val resized = resizeToTargetResolution(cropped, settings.resolution, settings.aspectRatio)
 
-        // 4. Apply retro preset and color matrix
+        // 4. Apply retro tone curve
         val colored = if (settings.preset != RetroPreset.NONE && settings.filterIntensity > 0.05f) {
             applyRetroFilter(resized, settings.preset, settings.filterIntensity)
         } else {
             resized
         }
 
-        // 5. Apply digital noise / sensor grain
+        // 5. Apply consistent authentic sensor noise
         val withNoise = if (settings.grainAmount > 0.05f) {
             applyDigitalNoise(colored, settings.grainAmount)
         } else {
             colored
         }
 
-        // 6. Apply subtle vintage vignette
-        val withVignette = if (settings.vignetteAmount > 0.05f) {
-            applyVignette(withNoise, settings.vignetteAmount)
-        } else {
-            withNoise
-        }
+        // 6. Optional Vignette
+        val withVignette = applySubtleVignette(withNoise)
 
-        // 7. Optional date stamp (burned into image ONLY when enabled)
-        val finalImage = if (settings.dateStampEnabled) {
-            applyDateStamp(withVignette, settings.dateStampStyle, settings.dateStampFormat, captureTime)
-        } else {
-            withVignette
-        }
+        // 7. Overlays: Date stamp (bottom-left) and Cool Sasuke text (bottom-right)
+        val finalImage = applyBadgesAndWatermarks(
+            src = withVignette,
+            settings = settings,
+            captureTime = captureTime
+        )
 
         finalImage
     }
 
-    /**
-     * Crops the center of the bitmap to match the requested aspect ratio.
-     */
     fun cropToAspectRatio(src: Bitmap, aspect: AspectRatioOption): Bitmap {
         val srcW = src.width.toFloat()
         val srcH = src.height.toFloat()
         val isPortrait = srcH > srcW
 
-        val targetRatio = if (isPortrait) {
-            1f / aspect.ratioFloat
-        } else {
-            aspect.ratioFloat
-        }
-
+        val targetRatio = if (isPortrait) 1f / aspect.ratioFloat else aspect.ratioFloat
         val currentRatio = srcW / srcH
 
         val cropW: Int
         val cropH: Int
 
         if (currentRatio > targetRatio) {
-            // Wider than target ratio: crop width
             cropH = src.height
             cropW = (cropH * targetRatio).roundToInt().coerceAtMost(src.width)
         } else {
-            // Taller than target ratio: crop height
             cropW = src.width
             cropH = (cropW / targetRatio).roundToInt().coerceAtMost(src.height)
         }
@@ -123,85 +114,67 @@ object RetroImageProcessor {
         return Bitmap.createBitmap(src, x, y, cropW, cropH)
     }
 
-    /**
-     * Resizes the image to the exact targeted resolution.
-     * For Retro 0.4 MP (~400,000 pixels):
-     * 4:3 Landscape -> 730 × 548 (400,040 pixels)
-     * 4:3 Portrait  -> 548 × 730 (400,040 pixels)
-     * 16:9 Landscape -> 842 × 474 (399,108 pixels)
-     * 1:1 Square     -> 632 × 632 (399,424 pixels)
-     */
     fun resizeToTargetResolution(
         src: Bitmap,
         resolution: ResolutionOption,
         aspect: AspectRatioOption
     ): Bitmap {
-        if (resolution == ResolutionOption.STANDARD) {
-            return src
-        }
-
         val targetPixels = resolution.targetPixels.toDouble()
         val isPortrait = src.height > src.width
         val ratio = if (isPortrait) 1.0 / aspect.ratioFloat else aspect.ratioFloat.toDouble()
 
-        // width * height = targetPixels, and width / height = ratio
-        // height = sqrt(targetPixels / ratio), width = height * ratio
         val targetHeight = sqrt(targetPixels / ratio).roundToInt()
         val targetWidth = (targetHeight * ratio).roundToInt()
 
-        // Avoid upscaling if source is already smaller
-        if (src.width <= targetWidth && src.height <= targetHeight) {
+        if (src.width == targetWidth && src.height == targetHeight) {
             return src
         }
 
         return Bitmap.createScaledBitmap(src, targetWidth, targetHeight, true)
     }
 
-    /**
-     * Applies retro color matrix with intensity interpolation.
-     */
     fun applyRetroFilter(src: Bitmap, preset: RetroPreset, intensity: Float): Bitmap {
+        // High-fidelity early 2000s compact camera CCD curve
         val targetMatrix = when (preset) {
             RetroPreset.ORIGINAL_RETRO -> ColorMatrix(floatArrayOf(
-                1.05f, 0.05f, -0.02f, 0f, 8f,    // Slight boost in reds and warm baseline
-                0.02f, 1.02f, 0.02f, 0f, 6f,     // Clean green
-                -0.03f, 0.02f, 0.95f, 0f, -4f,   // Slightly attenuated blue (vintage warm tone)
+                1.08f, 0.02f, 0.00f, 0f, 10f,   // Warm CCD dynamic pop
+                0.02f, 1.06f, 0.02f, 0f, 8f,
+                -0.02f, 0.02f, 0.98f, 0f, -2f,
                 0f, 0f, 0f, 1f, 0f
             ))
             RetroPreset.OLD_DIGITAL_CAMERA -> ColorMatrix(floatArrayOf(
-                1.15f, 0.00f, 0.00f, 0f, -8f,    // Crunchy CCD contrast
-                0.00f, 1.12f, 0.00f, 0f, -8f,    // High dynamic curve
-                0.05f, 0.05f, 1.18f, 0f, -2f,    // Punchy cool-blue CCD highlights
+                1.16f, 0.00f, 0.00f, 0f, -4f,   // Punchy high-contrast digital cam
+                0.00f, 1.14f, 0.00f, 0f, -4f,
+                0.04f, 0.04f, 1.20f, 0f, 2f,
                 0f, 0f, 0f, 1f, 0f
             ))
             RetroPreset.NOSTALGIC -> ColorMatrix(floatArrayOf(
-                1.12f, 0.08f, 0.02f, 0f, 15f,   // Golden warm lift
-                0.04f, 1.05f, 0.02f, 0f, 10f,
-                -0.08f, 0.02f, 0.88f, 0f, 2f,   // Amber glow
+                1.14f, 0.08f, 0.02f, 0f, 18f,  // Warm golden lift
+                0.04f, 1.08f, 0.02f, 0f, 12f,
+                -0.06f, 0.02f, 0.90f, 0f, 2f,
                 0f, 0f, 0f, 1f, 0f
             ))
             RetroPreset.FADED_MEMORY -> ColorMatrix(floatArrayOf(
-                0.88f, 0.10f, 0.08f, 0f, 22f,   // Lifted washed shadows
-                0.08f, 0.88f, 0.08f, 0f, 22f,
-                0.08f, 0.10f, 0.88f, 0f, 26f,   // Low contrast washed look
+                0.90f, 0.08f, 0.08f, 0f, 24f,  // Washed faded shadows
+                0.08f, 0.90f, 0.08f, 0f, 24f,
+                0.08f, 0.08f, 0.90f, 0f, 26f,
                 0f, 0f, 0f, 1f, 0f
             ))
             RetroPreset.COOL_TONES -> ColorMatrix(floatArrayOf(
-                0.90f, 0.02f, 0.05f, 0f, -4f,   // Dimmed reds
-                0.02f, 0.98f, 0.08f, 0f, 4f,
-                0.05f, 0.05f, 1.25f, 0f, 18f,   // Cyber early 2000s cool fluorescent tint
+                0.92f, 0.02f, 0.04f, 0f, -2f,
+                0.02f, 0.98f, 0.06f, 0f, 4f,
+                0.04f, 0.04f, 1.22f, 0f, 16f,  // Cool early cyber tone
                 0f, 0f, 0f, 1f, 0f
             ))
             RetroPreset.WARM_TONES -> ColorMatrix(floatArrayOf(
-                1.20f, 0.06f, 0.00f, 0f, 14f,   // Cozy tungsten amber
-                0.08f, 1.10f, 0.02f, 0f, 8f,
-                -0.10f, -0.05f, 0.82f, 0f, -6f,
+                1.18f, 0.06f, 0.00f, 0f, 16f,  // Tungsten vintage warmth
+                0.06f, 1.10f, 0.02f, 0f, 10f,
+                -0.08f, -0.04f, 0.86f, 0f, -4f,
                 0f, 0f, 0f, 1f, 0f
             ))
             RetroPreset.NONE -> ColorMatrix()
         }
 
-        // Interpolate between Identity matrix and Target matrix based on intensity
         val identity = ColorMatrix()
         val finalMatrix = ColorMatrix()
         val iArr = identity.array
@@ -224,9 +197,6 @@ object RetroImageProcessor {
         return output
     }
 
-    /**
-     * Applies subtle digital sensor noise characteristic of early digital compact cameras.
-     */
     fun applyDigitalNoise(src: Bitmap, amount: Float): Bitmap {
         val width = src.width
         val height = src.height
@@ -234,12 +204,11 @@ object RetroImageProcessor {
         val pixels = IntArray(width * height)
         output.getPixels(pixels, 0, width, 0, 0, width, height)
 
-        val random = Random(42)
-        val maxDelta = (32 * amount.coerceIn(0f, 1f)).toInt()
+        val random = Random(System.currentTimeMillis())
+        val maxDelta = (28 * amount.coerceIn(0f, 1f)).toInt()
         if (maxDelta <= 0) return src
 
         for (i in pixels.indices) {
-            // Apply slight sensor noise (luminance variation)
             val noise = random.nextInt(maxDelta * 2 + 1) - maxDelta
             val p = pixels[i]
             val a = (p shr 24) and 0xFF
@@ -258,21 +227,18 @@ object RetroImageProcessor {
         return output
     }
 
-    /**
-     * Applies subtle lens vignette (corner falloff).
-     */
-    fun applyVignette(src: Bitmap, amount: Float): Bitmap {
+    private fun applySubtleVignette(src: Bitmap): Bitmap {
         val output = src.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(output)
         val radius = sqrt((src.width * src.width + src.height * src.height).toDouble()).toFloat() / 2f
-        val maxAlpha = (120 * amount.coerceIn(0f, 1f)).toInt().coerceIn(0, 255)
+        val maxAlpha = 65
 
         val shader = RadialGradient(
             src.width / 2f,
             src.height / 2f,
             radius,
-            intArrayOf(Color.TRANSPARENT, Color.argb((maxAlpha * 0.4f).toInt(), 0, 0, 0), Color.argb(maxAlpha, 0, 0, 0)),
-            floatArrayOf(0.55f, 0.85f, 1.0f),
+            intArrayOf(Color.TRANSPARENT, Color.argb((maxAlpha * 0.3f).toInt(), 0, 0, 0), Color.argb(maxAlpha, 0, 0, 0)),
+            floatArrayOf(0.60f, 0.88f, 1.0f),
             Shader.TileMode.CLAMP
         )
 
@@ -286,61 +252,92 @@ object RetroImageProcessor {
     }
 
     /**
-     * Burns an authentic old digital camera date stamp in the bottom-left corner.
-     * E.g. "22.10.2026" or "'26 10 22" in retro glowing digital style.
+     * Burns:
+     * 1. Date stamp on the bottom-left (e.g. "23.10.2026")
+     * 2. Cool stylish "⚡ Sasuke" signature on the bottom-right
      */
-    fun applyDateStamp(
+    private fun applyBadgesAndWatermarks(
         src: Bitmap,
-        style: DateStampStyle,
-        format: DateStampFormat,
-        timestamp: Long
+        settings: CameraSettings,
+        captureTime: Long
     ): Bitmap {
         val output = src.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(output)
 
-        val sdf = SimpleDateFormat(format.pattern, Locale.US)
-        val dateText = sdf.format(Date(timestamp))
+        // Base text size scaled cleanly to image width
+        val baseTextSize = (src.width * 0.038f).coerceIn(13f, 32f)
+        val marginX = (src.width * 0.040f).coerceAtLeast(10f)
+        val marginY = (src.height * 0.045f).coerceAtLeast(12f)
 
-        // Scale font size based on image width (e.g., ~3.5% of width, minimum 14px)
-        val textSize = (src.width * 0.038f).coerceAtLeast(14f)
-        val marginX = (src.width * 0.045f).coerceAtLeast(12f)
-        val marginY = (src.height * 0.055f).coerceAtLeast(16f)
+        // 1. DATE STAMP (Bottom-Left)
+        if (settings.dateStampEnabled) {
+            val sdf = SimpleDateFormat(settings.dateStampFormat.pattern, Locale.US)
+            val dateText = sdf.format(Date(captureTime))
 
-        // Monospace retro digital look
-        val typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            val datePaint = Paint().apply {
+                this.textSize = baseTextSize
+                this.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                this.isAntiAlias = true
+                this.color = settings.dateStampStyle.hexColor.toInt()
+                this.setShadowLayer(baseTextSize * 0.35f, 1.5f, 1.5f, Color.argb(180, 0, 0, 0))
+            }
 
-        val textPaint = Paint().apply {
-            this.textSize = textSize
-            this.typeface = typeface
-            this.isAntiAlias = true
-            this.color = style.hexColor.toInt()
-            // Subtle glowing shadow typical of digital LCD phosphor
-            this.setShadowLayer(textSize * 0.25f, 1f, 1f, Color.argb(160, 0, 0, 0))
+            val textBounds = Rect()
+            datePaint.getTextBounds(dateText, 0, dateText.length, textBounds)
+
+            val x = marginX
+            val y = src.height.toFloat() - marginY
+
+            // Translucent dark back-pill
+            val pillPaint = Paint().apply {
+                color = Color.argb(95, 0, 0, 0)
+                isAntiAlias = true
+            }
+            val padX = baseTextSize * 0.32f
+            val padY = baseTextSize * 0.22f
+            val pillRect = RectF(
+                x - padX,
+                y - textBounds.height() - padY,
+                x + textBounds.width() + padX,
+                y + padY
+            )
+            canvas.drawRoundRect(pillRect, 4f, 4f, pillPaint)
+            canvas.drawText(dateText, x, y, datePaint)
         }
 
-        val textBounds = Rect()
-        textPaint.getTextBounds(dateText, 0, dateText.length, textBounds)
+        // 2. COOL SASUKE SIGNATURE (Bottom-Right)
+        if (settings.sasukeWatermarkEnabled) {
+            val sasukeText = "⚡ Sasuke"
+            val sasukePaint = Paint().apply {
+                this.textSize = baseTextSize * 0.95f
+                this.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD_ITALIC)
+                this.isAntiAlias = true
+                this.color = Color.argb(230, 255, 255, 255)
+                this.setShadowLayer(baseTextSize * 0.4f, 1.5f, 1.5f, Color.argb(200, 0, 0, 0))
+            }
 
-        val x = marginX
-        val y = src.height.toFloat() - marginY
+            val bounds = Rect()
+            sasukePaint.getTextBounds(sasukeText, 0, sasukeText.length, bounds)
 
-        // Draw subtle soft dark background pill for crisp legibility
-        val bgPaint = Paint().apply {
-            color = Color.argb(90, 0, 0, 0)
-            isAntiAlias = true
+            val x = src.width.toFloat() - marginX - bounds.width()
+            val y = src.height.toFloat() - marginY
+
+            // Dark translucent back-pill
+            val pillPaint = Paint().apply {
+                color = Color.argb(110, 10, 10, 15)
+                isAntiAlias = true
+            }
+            val padX = baseTextSize * 0.35f
+            val padY = baseTextSize * 0.22f
+            val pillRect = RectF(
+                x - padX,
+                y - bounds.height() - padY,
+                x + bounds.width() + padX,
+                y + padY
+            )
+            canvas.drawRoundRect(pillRect, 4f, 4f, pillPaint)
+            canvas.drawText(sasukeText, x, y, sasukePaint)
         }
-        val pillPaddingX = textSize * 0.35f
-        val pillPaddingY = textSize * 0.25f
-        val pillRect = RectF(
-            x - pillPaddingX,
-            y - textBounds.height() - pillPaddingY,
-            x + textBounds.width() + pillPaddingX,
-            y + pillPaddingY
-        )
-        canvas.drawRoundRect(pillRect, 4f, 4f, bgPaint)
-
-        // Draw date text
-        canvas.drawText(dateText, x, y, textPaint)
 
         return output
     }

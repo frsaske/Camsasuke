@@ -383,11 +383,9 @@ fun ImportEditScreen(
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(SasukeSurfaceVariant)
                                 .clickable {
-                                    selectedResolution = when (selectedResolution) {
-                                        ResolutionOption.RETRO_0_4_MP -> ResolutionOption.LOW_1_2_MP
-                                        ResolutionOption.LOW_1_2_MP -> ResolutionOption.STANDARD
-                                        ResolutionOption.STANDARD -> ResolutionOption.RETRO_0_4_MP
-                                    }
+                                    val resolutions = ResolutionOption.values()
+                                    val nextIdx = (selectedResolution.ordinal + 1) % resolutions.size
+                                    selectedResolution = resolutions[nextIdx]
                                 }
                                 .padding(horizontal = 8.dp, vertical = 6.dp)
                         ) {

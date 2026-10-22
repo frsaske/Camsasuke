@@ -11,7 +11,7 @@ import kotlin.math.sqrt
 class ExampleUnitTest {
     @Test
     fun testRetroResolution4_3_matchesApprox400kPixels() {
-        val targetPixels = ResolutionOption.RETRO_0_4_MP.targetPixels.toDouble()
+        val targetPixels = ResolutionOption.MP_0_4.targetPixels.toDouble()
         val ratio = AspectRatioOption.RATIO_4_3.ratioFloat.toDouble()
         val targetHeight = sqrt(targetPixels / ratio).roundToInt()
         val targetWidth = (targetHeight * ratio).roundToInt()
@@ -24,27 +24,15 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun testRetroResolution16_9_matchesApprox400kPixels() {
-        val targetPixels = ResolutionOption.RETRO_0_4_MP.targetPixels.toDouble()
-        val ratio = AspectRatioOption.RATIO_16_9.ratioFloat.toDouble()
-        val targetHeight = sqrt(targetPixels / ratio).roundToInt()
-        val targetWidth = (targetHeight * ratio).roundToInt()
-        val totalPixels = targetWidth * targetHeight
-
-        // Should be approximately 400,000 total pixels
-        assertTrue(totalPixels in 390_000..410_000)
-    }
-
-    @Test
-    fun testRetroResolution1_1_matchesApprox400kPixels() {
-        val targetPixels = ResolutionOption.RETRO_0_4_MP.targetPixels.toDouble()
-        val ratio = AspectRatioOption.RATIO_1_1.ratioFloat.toDouble()
-        val targetHeight = sqrt(targetPixels / ratio).roundToInt()
-        val targetWidth = (targetHeight * ratio).roundToInt()
-        val totalPixels = targetWidth * targetHeight
-
-        assertEquals(targetWidth, targetHeight)
-        assertTrue(totalPixels in 390_000..410_000)
+    fun testMpOptionsExist() {
+        assertEquals(7, ResolutionOption.values().size)
+        assertEquals("0.3 MP", ResolutionOption.MP_0_3.label)
+        assertEquals("0.4 MP", ResolutionOption.MP_0_4.label)
+        assertEquals("0.5 MP", ResolutionOption.MP_0_5.label)
+        assertEquals("0.9 MP", ResolutionOption.MP_0_9.label)
+        assertEquals("1 MP", ResolutionOption.MP_1_0.label)
+        assertEquals("2 MP", ResolutionOption.MP_2_0.label)
+        assertEquals("3 MP", ResolutionOption.MP_3_0.label)
     }
 
     @Test

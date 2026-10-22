@@ -167,8 +167,8 @@ class CameraManager(
         val recorder = Recorder.Builder()
             .setQualitySelector(
                 QualitySelector.from(
-                    Quality.HD,
-                    FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)
+                    Quality.SD,
+                    FallbackStrategy.lowerQualityOrHigherThan(Quality.LOWEST)
                 )
             )
             .build()
@@ -219,11 +219,24 @@ class CameraManager(
         cameraControl.startFocusAndMetering(action)
     }
 
+    private var currentLinearZoom = 0f
+
     /**
-     * Sets linear zoom (0.0f to 1.0f).
+     * Zoom In / Zoom Out step controls for the viewfinder buttons (+ / -).
      */
+    fun zoomIn() {
+        currentLinearZoom = (currentLinearZoom + 0.18f).coerceAtMost(1f)
+        camera?.cameraControl?.setLinearZoom(currentLinearZoom)
+    }
+
+    fun zoomOut() {
+        currentLinearZoom = (currentLinearZoom - 0.18f).coerceAtLeast(0f)
+        camera?.cameraControl?.setLinearZoom(currentLinearZoom)
+    }
+
     fun setLinearZoom(zoom: Float) {
-        camera?.cameraControl?.setLinearZoom(zoom.coerceIn(0f, 1f))
+        currentLinearZoom = zoom.coerceIn(0f, 1f)
+        camera?.cameraControl?.setLinearZoom(currentLinearZoom)
     }
 
     /**
