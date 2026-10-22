@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">Sasuke RetroCam</string>
+    <string name="brand_name">SASUKE</string>
+    <string name="app_subtitle">0.4 MP Vintage Digital Cam</string>
+    <string name="developer_name">Sasuke</string>
+    <string name="developer_contact">Sasuke.winx@gmail.com</string>
+
+    <string name="permission_camera_title">Camera Access Required</string>
+    <string name="permission_camera_desc">Sasuke RetroCam needs camera access to capture authentic vintage digital photographs and video.</string>
+    <string name="permission_camera_grant">Grant Camera Access</string>
+    <string name="permission_audio_title">Microphone Access</string>
+    <string name="permission_audio_desc">Microphone permission allows recording nostalgic sound with your videos.</string>
+
+    <string name="action_shutter">Take Photo</string>
+    <string name="action_record_start">Start Recording</string>
+    <string name="action_record_stop">Stop Recording</string>
+    <string name="action_switch_camera">Switch Camera</string>
+    <string name="action_flash">Flash</string>
+    <string name="action_gallery">Gallery</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_import">Import</string>
+    <string name="action_share">Share</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_close">Close</string>
+
+    <string name="preset_original_retro">Original Retro</string>
+    <string name="preset_old_digital">Old Digital Camera</string>
+    <string name="preset_nostalgic">Nostalgic</string>
+    <string name="preset_faded_memory">Faded Memory</string>
+    <string name="preset_cool_tones">Cool Tones</string>
+    <string name="preset_warm_tones">Warm Tones</string>
+    <string name="preset_none">None (Clean)</string>
+
+    <string name="resolution_retro">Retro 0.4 MP</string>
+    <string name="resolution_low">Low 1.2 MP</string>
+    <string name="resolution_standard">Device Standard</string>
+
+    <string name="mode_photo">PHOTO</string>
+    <string name="mode_video">VIDEO</string>
+</resources>
