@@ -25,20 +25,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -66,263 +67,318 @@ import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.model.MediaItem
-import com.example.ui.theme.GlassBackground
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.SasukeAmber
-import com.example.ui.theme.SasukeBlack
-import com.example.ui.theme.SasukeMuted
-import com.example.ui.theme.SasukeRed
-import com.example.ui.theme.SasukeSilver
-import com.example.ui.theme.SasukeSurface
+import com.example.ui.theme.DarkBackground
+import com.example.ui.theme.DarkBorder
+import com.example.ui.theme.DarkCardElevated
+import com.example.ui.theme.DarkCardSurface
+import com.example.ui.theme.RecordRed
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @Composable
 fun MediaDetailScreen(
-    item: MediaItem,
+    items: List<MediaItem>,
+    initialIndex: Int,
     onBack: () -> Unit,
     onDelete: (MediaItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     BackHandler { onBack() }
     val context = LocalContext.current
-    var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Pinch-to-zoom state for photo
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
-        scale = (scale * zoomChange).coerceIn(1f, 5f)
-        offset = if (scale > 1f) offset + offsetChange else Offset.Zero
+    if (items.isEmpty()) {
+        onBack()
+        return
     }
+
+    val safeInitialIndex = initialIndex.coerceIn(0, items.size - 1)
+    val pagerState = rememberPagerState(initialPage = safeInitialIndex) { items.size }
+
+    val currentItem = items.getOrNull(pagerState.currentPage) ?: items[0]
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = SasukeBlack
+        color = DarkBackground
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Main Media Content
-            if (item.isVideo) {
-                // Video View
-                AndroidView(
-                    factory = { ctx ->
-                        VideoView(ctx).apply {
-                            setVideoURI(item.uri)
-                            val controller = MediaController(ctx)
-                            controller.setAnchorView(this)
-                            setMediaController(controller)
-                            setOnPreparedListener { mp ->
-                                mp.isLooping = true
-                                start()
+
+            // Sliding Horizontal Pager for swiping between photos and videos
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val media = items[page]
+                if (media.isVideo) {
+                    // Video View
+                    AndroidView(
+                        factory = { ctx ->
+                            VideoView(ctx).apply {
+                                setVideoURI(media.uri)
+                                val controller = MediaController(ctx)
+                                controller.setAnchorView(this)
+                                setMediaController(controller)
+                                setOnPreparedListener { mp ->
+                                    mp.isLooping = true
+                                    start()
+                                }
                             }
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                // Photo View with pinch-to-zoom
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .transformable(state = transformState),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(item.uri)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = item.displayName,
-                        contentScale = ContentScale.Fit,
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    // Photo View with pinch-to-zoom
+                    var scale by remember { mutableFloatStateOf(1f) }
+                    var offset by remember { mutableStateOf(Offset.Zero) }
+                    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
+                        scale = (scale * zoomChange).coerceIn(1f, 5f)
+                        offset = if (scale > 1f) offset + offsetChange else Offset.Zero
+                    }
+
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer(
-                                scaleX = scale,
-                                scaleY = scale,
-                                translationX = offset.x,
-                                translationY = offset.y
-                            )
-                    )
+                            .transformable(state = transformState),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(media.uri)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = media.displayName,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale,
+                                    translationX = offset.x,
+                                    translationY = offset.y
+                                )
+                        )
+                    }
                 }
             }
 
-            // Top Control Bar
+            // Top Header: Back button + Index Indicator + Name
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
                     .padding(top = topPadding)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .testTag("detail_back_button")
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(GlassBackground)
-                            .border(1.dp, GlassBorder, CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = SasukeSilver
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Column {
-                        Text(
-                            text = item.displayName,
-                            color = SasukeSilver,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        if (item.dimensionsText.isNotEmpty()) {
-                            Text(
-                                text = "${item.dimensionsText} • ${item.megapixelsText}",
-                                color = SasukeAmber,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .testTag("detail_back_button")
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(DarkCardSurface.copy(alpha = 0.85f))
+                        .border(1.dp, DarkBorder, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = TextPrimary
+                    )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Share button
-                    IconButton(
-                        onClick = { shareMedia(context, item) },
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(GlassBackground)
-                            .border(1.dp, GlassBorder, CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share",
-                            tint = SasukeSilver
-                        )
-                    }
+                // Index Pill (e.g., 3 of 12)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(DarkCardSurface.copy(alpha = 0.85f))
+                        .border(1.dp, DarkBorder, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "${pagerState.currentPage + 1} / ${items.size}",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
 
-                    // Open In external viewer
-                    IconButton(
-                        onClick = { openExternal(context, item) },
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(GlassBackground)
-                            .border(1.dp, GlassBorder, CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInNew,
-                            contentDescription = "Open in app",
-                            tint = SasukeSilver
-                        )
-                    }
-
-                    // Delete button
-                    IconButton(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(GlassBackground)
-                            .border(1.dp, GlassBorder, CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = SasukeRed
-                        )
-                    }
+                // Quick Info Icon
+                IconButton(
+                    onClick = { showInfoDialog = true },
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(DarkCardSurface.copy(alpha = 0.85f))
+                        .border(1.dp, DarkBorder, CircleShape)
+                        .testTag("detail_info_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Details",
+                        tint = TextPrimary
+                    )
                 }
             }
 
-            // Bottom Information Card
-            Box(
+            // Bottom Action Dock: Native Gallery Tools (Share, Open In, Delete)
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomPadding)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(GlassBackground)
-                    .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
-                    .padding(14.dp)
+                    .padding(bottom = bottomPadding + 8.dp)
+                    .padding(horizontal = 24.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(DarkCardSurface.copy(alpha = 0.90f))
+                    .border(1.dp, DarkBorder, RoundedCornerShape(24.dp))
+                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Share
+                IconButton(
+                    onClick = { shareMedia(context, currentItem) },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .testTag("action_share_button")
                 ) {
-                    Column {
-                        val dateFormatted = remember(item.dateModified) {
-                            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-                            sdf.format(Date(item.dateModified))
-                        }
-                        Text(
-                            text = dateFormatted,
-                            color = SasukeSilver,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Medium
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Text(
-                            text = "Album: Sasuke RetroCam",
-                            color = SasukeMuted,
-                            fontSize = 11.sp
-                        )
+                        Text("Share", color = TextSecondary, fontSize = 10.sp)
                     }
+                }
 
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = item.fileSizeText,
-                            color = SasukeAmber,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                // Open In
+                IconButton(
+                    onClick = { openExternal(context, currentItem) },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .testTag("action_open_in_button")
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = "Open In",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
-                        if (item.isVideo && item.durationMs > 0) {
-                            val sec = item.durationMs / 1000
-                            Text(
-                                text = String.format("%02d:%02d", sec / 60, sec % 60),
-                                color = SasukeSilver,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
+                        Text("Open", color = TextSecondary, fontSize = 10.sp)
+                    }
+                }
+
+                // Info
+                IconButton(
+                    onClick = { showInfoDialog = true },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .testTag("action_info_button")
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Info",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text("Info", color = TextSecondary, fontSize = 10.sp)
+                    }
+                }
+
+                // Delete
+                IconButton(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .testTag("action_delete_button")
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = RecordRed,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text("Delete", color = RecordRed, fontSize = 10.sp)
                     }
                 }
             }
         }
     }
 
+    // Info Dialog
+    if (showInfoDialog) {
+        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.US)
+        val formattedDate = sdf.format(Date(currentItem.dateModified * 1000L))
+        val sizeText = currentItem.fileSizeText
+
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            containerColor = DarkCardSurface,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
+            title = {
+                Text(
+                    text = "ITEM INFORMATION",
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InfoRow(label = "Filename", value = currentItem.displayName)
+                    InfoRow(label = "Type", value = if (currentItem.isVideo) "Retro Video (MP4)" else "Retro Photo (JPEG)")
+                    if (currentItem.dimensionsText.isNotEmpty()) {
+                        InfoRow(label = "Resolution", value = "${currentItem.dimensionsText} (${currentItem.megapixelsText})")
+                    }
+                    InfoRow(label = "Aspect Ratio", value = "4:3")
+                    InfoRow(label = "Watermark", value = "Permanent \"ѕαѕυкє\"")
+                    if (sizeText.isNotEmpty()) {
+                        InfoRow(label = "Size", value = sizeText)
+                    }
+                    InfoRow(label = "Captured", value = formattedDate)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showInfoDialog = false }) {
+                    Text("CLOSE", color = TextPrimary, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
     // Delete Confirmation Dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
+            containerColor = DarkCardSurface,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
             title = {
                 Text(
-                    text = "Delete Media?",
-                    color = SasukeSilver,
+                    text = "Delete File?",
+                    fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
-                    text = "Are you sure you want to delete ${item.displayName}? This will permanently remove it from your device.",
-                    color = SasukeMuted,
+                    text = "Do you want to permanently delete \"${currentItem.displayName}\" from Sasuke RetroCam gallery?",
                     fontSize = 13.sp
                 )
             },
@@ -330,44 +386,46 @@ fun MediaDetailScreen(
                 Button(
                     onClick = {
                         showDeleteDialog = false
-                        onDelete(item)
+                        onDelete(currentItem)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SasukeRed)
+                    colors = ButtonDefaults.buttonColors(containerColor = RecordRed)
                 ) {
-                    Text("Delete", color = Color.White)
+                    Text("Delete", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = SasukeSilver)
+                OutlinedButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
                 }
-            },
-            containerColor = SasukeSurface
+            }
         )
     }
 }
 
-private fun shareMedia(context: Context, item: MediaItem) {
-    try {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = if (item.isVideo) "video/*" else "image/jpeg"
-            putExtra(Intent.EXTRA_STREAM, item.uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        context.startActivity(Intent.createChooser(intent, "Share ${item.displayName}"))
-    } catch (e: Exception) {
-        // Fallback
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(text = label, color = TextMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+        Text(text = value, color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
     }
 }
 
-private fun openExternal(context: Context, item: MediaItem) {
-    try {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(item.uri, if (item.isVideo) "video/*" else "image/*")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        // Fallback
+private fun shareMedia(context: Context, item: MediaItem) {
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = if (item.isVideo) "video/mp4" else "image/jpeg"
+        putExtra(Intent.EXTRA_STREAM, item.uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
+    context.startActivity(Intent.createChooser(shareIntent, "Share Sasuke Retro Capture"))
+}
+
+private fun openExternal(context: Context, item: MediaItem) {
+    val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(item.uri, if (item.isVideo) "video/mp4" else "image/jpeg")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(viewIntent, "Open Media"))
 }

@@ -25,14 +25,14 @@ import com.example.ui.GalleryScreen
 import com.example.ui.ImportEditScreen
 import com.example.ui.MediaDetailScreen
 import com.example.ui.SettingsScreen
-import com.example.ui.theme.SasukeBlack
+import com.example.ui.theme.DarkBackground
 import com.example.ui.theme.SasukeRetroCamTheme
 import kotlinx.coroutines.launch
 
 sealed interface Screen {
     object Camera : Screen
     object Gallery : Screen
-    data class MediaDetail(val item: MediaItem) : Screen
+    data class MediaDetail(val items: List<MediaItem>, val initialIndex: Int) : Screen
     data class ImportEdit(val uri: Uri, val isVideo: Boolean) : Screen
     object Settings : Screen
 }
@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
             SasukeRetroCamTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = SasukeBlack
+                    color = DarkBackground
                 ) {
                     RetroCamApp(
                         cameraManager = cameraManager,
@@ -120,8 +120,8 @@ fun RetroCamApp(
             GalleryScreen(
                 mediaList = mediaList,
                 isLoading = isLoadingMedia,
-                onItemClick = { item ->
-                    currentScreen = Screen.MediaDetail(item)
+                onItemClick = { index ->
+                    currentScreen = Screen.MediaDetail(mediaList, index)
                 },
                 onBack = {
                     currentScreen = Screen.Camera
@@ -131,7 +131,8 @@ fun RetroCamApp(
 
         is Screen.MediaDetail -> {
             MediaDetailScreen(
-                item = screen.item,
+                items = screen.items,
+                initialIndex = screen.initialIndex,
                 onBack = {
                     refreshMedia()
                     currentScreen = Screen.Gallery

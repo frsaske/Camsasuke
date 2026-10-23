@@ -40,9 +40,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.FlashAuto
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,7 +62,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -78,12 +82,21 @@ import coil.request.ImageRequest
 import com.example.R
 import com.example.camera.CameraManager
 import com.example.camera.MediaStoreManager
-import com.example.model.AspectRatioOption
 import com.example.model.CameraFlashMode
 import com.example.model.CameraLensFacing
 import com.example.model.CameraSettings
 import com.example.model.MediaItem
 import com.example.model.ResolutionOption
+import com.example.ui.theme.DarkBackground
+import com.example.ui.theme.DarkBorder
+import com.example.ui.theme.DarkCardElevated
+import com.example.ui.theme.DarkCardPrimary
+import com.example.ui.theme.DarkCardSurface
+import com.example.ui.theme.RecordRed
+import com.example.ui.theme.SlateBlue
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 
 @Composable
@@ -177,7 +190,7 @@ fun CameraScreen(
     // Notification toast timeout
     LaunchedEffect(successToast) {
         if (successToast != null) {
-            delay(2600)
+            delay(2400)
             successToast = null
         }
     }
@@ -187,11 +200,11 @@ fun CameraScreen(
 
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = DarkCanvas
+        color = DarkBackground
     ) {
         if (!hasCameraPermission) {
-            // Elegant, human-crafted glassmorphism permission prompt
-            LuxuryPermissionPrompt(
+            // Apple-style dark card permission prompt with Sasuke art
+            DarkPermissionPrompt(
                 onGrantClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) }
             )
         } else {
@@ -205,113 +218,40 @@ fun CameraScreen(
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
 
-                    // 1. TOP HEADER & CONTROLS DOCK
+                    // 1. TOP HEADER & CAMERA CONTROLS
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        // Top status bar
-                        LuxuryRetroHeader()
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Controls Row: [ IMPORT ] [ ⚡ FLASH ] | [ ↺ REAR/FRONT ] [ ⚙ ]
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Left actions
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                LuxuryGlassButton(
-                                    text = "IMPORT",
-                                    onClick = {
-                                        photoPickerLauncher.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
-                                        )
-                                    },
-                                    testTag = "import_button"
-                                )
-
-                                val flashLabel = when (flashMode) {
-                                    CameraFlashMode.OFF -> "FLASH OFF"
-                                    CameraFlashMode.ON -> "FLASH ON"
-                                    CameraFlashMode.AUTO -> "FLASH AUTO"
+                        TopControlBar(
+                            lensFacing = lensFacing,
+                            flashMode = flashMode,
+                            onFlashToggle = {
+                                val next = when (flashMode) {
+                                    CameraFlashMode.OFF -> CameraFlashMode.ON
+                                    CameraFlashMode.ON -> CameraFlashMode.AUTO
+                                    CameraFlashMode.AUTO -> CameraFlashMode.OFF
                                 }
-                                LuxuryGlassButton(
-                                    text = flashLabel,
-                                    active = flashMode != CameraFlashMode.OFF,
-                                    accentColor = AccentAmber,
-                                    onClick = {
-                                        val next = when (flashMode) {
-                                            CameraFlashMode.OFF -> CameraFlashMode.ON
-                                            CameraFlashMode.ON -> CameraFlashMode.AUTO
-                                            CameraFlashMode.AUTO -> CameraFlashMode.OFF
-                                        }
-                                        cameraManager.setFlashMode(next)
-                                        onSettingsChanged(settings.copy(flashMode = next))
-                                    },
-                                    testTag = "flash_button"
-                                )
-                            }
-
-                            // Right actions
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val lensLabel = if (lensFacing == CameraLensFacing.BACK) "FRONT" else "REAR"
-                                LuxuryGlassButton(
-                                    text = lensLabel,
-                                    onClick = {
-                                        previewViewRef?.let { pView ->
-                                            cameraManager.switchCamera(lifecycleOwner, pView)
-                                        }
-                                    },
-                                    testTag = "camera_switch_btn"
-                                )
-
-                                // Settings button
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0x66222230))
-                                        .border(1.dp, GlassBorderRefined, CircleShape)
-                                        .clickable(onClick = onOpenSettings)
-                                        .testTag("settings_icon_btn")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Settings,
-                                        contentDescription = "Settings",
-                                        tint = TextPrimary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // TACTILE MP SELECTOR BAR (0.3 • 0.4 • 0.5 • 0.9 • 1 • 2 • 3)
-                        LuxuryMpSelectorStrip(
-                            selectedResolution = settings.resolution,
-                            onSelect = { res ->
-                                onSettingsChanged(settings.copy(resolution = res))
+                                cameraManager.setFlashMode(next)
+                                onSettingsChanged(settings.copy(flashMode = next))
                             },
-                            modifier = Modifier.padding(horizontal = 14.dp)
+                            onSwitchLens = {
+                                previewViewRef?.let { pView ->
+                                    cameraManager.switchCamera(lifecycleOwner, pView)
+                                }
+                            },
+                            onOpenSettings = onOpenSettings
                         )
                     }
 
-                    // 2. LIVE CAMERA VIEWFINDER (Curved, Floating, Authentic 4:3 letterboxing)
+                    // 2. LIVE LOW-RESOLUTION 4:3 VIEWFINDER
                     Box(
                         modifier = Modifier
-                            .weight(1f)
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF040406))
-                            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(16.dp)),
-                        contentAlignment = Alignment.Center
+                            .padding(horizontal = 12.dp)
+                            .aspectRatio(3f / 4f)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(DarkCardSurface)
+                            .border(1.dp, DarkBorder, RoundedCornerShape(20.dp))
                     ) {
-                        // CameraX Preview
+                        // Actual CameraX SurfaceProvider targeting low resolution (640x480)
                         AndroidView(
                             factory = { ctx ->
                                 PreviewView(ctx).apply {
@@ -327,190 +267,228 @@ fun CameraScreen(
                             },
                             modifier = Modifier
                                 .fillMaxSize()
-                                .pointerInput(previewViewRef) {
+                                .pointerInput(Unit) {
                                     detectTapGestures { offset ->
                                         focusPoint = offset
-                                        previewViewRef?.let { pView ->
-                                            cameraManager.tapToFocus(
-                                                factory = pView.meteringPointFactory,
-                                                x = offset.x,
-                                                y = offset.y
-                                            )
-                                        }
+                                        val pView = previewViewRef ?: return@detectTapGestures
+                                        val factory = pView.meteringPointFactory
+                                        cameraManager.tapToFocus(factory, offset.x, offset.y)
                                     }
                                 }
                         )
 
-                        // Focus indicator
-                        if (focusPoint != null) {
+                        // Top Viewfinder Badges
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Live low-res indicator
                             Box(
                                 modifier = Modifier
-                                    .size(52.dp)
-                                    .align(Alignment.Center)
-                                    .border(1.5.dp, AccentAmber, RoundedCornerShape(4.dp))
-                            )
-                        }
-
-                        // Live recording indicator
-                        if (isRecording) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .padding(12.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xDD000000))
-                                    .border(1.dp, AccentRed, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    .background(Color(0xB30C0E12))
+                                    .border(0.8.dp, DarkBorder, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
-                                val min = recordingSeconds / 60
-                                val sec = recordingSeconds % 60
                                 Text(
-                                    text = String.format("● REC %02d:%02d [SD LOW]", min, sec),
-                                    color = AccentRed,
-                                    fontSize = 11.sp,
+                                    text = if (isVideoMode) "REC 4:3 • ${settings.videoResolution.label}" else "4:3 • ${settings.resolution.label} • RETRO",
+                                    color = TextPrimary,
                                     fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
+                            }
+
+                            // Zoom Control Buttons (- / +)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ZoomPill(label = "—", onClick = { cameraManager.zoomOut() }, testTag = "zoom_out_btn")
+                                ZoomPill(label = "+", onClick = { cameraManager.zoomIn() }, testTag = "zoom_in_btn")
                             }
                         }
 
-                        // Floating Zoom Pill on the right edge
-                        LuxuryZoomControl(
-                            onZoomIn = { cameraManager.zoomIn() },
-                            onZoomOut = { cameraManager.zoomOut() },
+                        // Bottom-right permanent "ѕαѕυкє" watermark badge preview
+                        Box(
                             modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(end = 10.dp)
-                        )
+                                .align(Alignment.BottomEnd)
+                                .padding(12.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0x800C0E12))
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = CameraSettings.PERMANENT_WATERMARK, // "ѕαѕυкє"
+                                color = TextPrimary.copy(alpha = 0.70f),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
 
-                        // Bottom-Left Date Stamp watermark preview
+                        // Bottom-left Date Preview if enabled
                         if (settings.dateStampEnabled) {
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomStart)
                                     .padding(12.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0x99000000))
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0x800C0E12))
                                     .padding(horizontal = 6.dp, vertical = 3.dp)
                             ) {
                                 Text(
-                                    text = "23.10.2026",
-                                    color = AccentAmber,
-                                    fontSize = 11.sp,
+                                    text = "DATE ON",
+                                    color = Color(0xFFFFB703),
                                     fontFamily = FontFamily.Monospace,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
 
-                        // Bottom-Right Sasuke signature watermark preview
-                        if (settings.sasukeWatermarkEnabled) {
+                        // Tap-to-focus ring
+                        focusPoint?.let { pt ->
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(12.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0x99000000))
-                                    .padding(horizontal = 6.dp, vertical = 3.dp)
-                            ) {
-                                Text(
-                                    text = "⚡ Sasuke",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                                    .size(56.dp)
+                                    .align(Alignment.TopStart)
+                                    .padding(
+                                        start = (pt.x - 28).coerceAtLeast(0f).dp,
+                                        top = (pt.y - 28).coerceAtLeast(0f).dp
+                                    )
+                                    .border(1.5.dp, Color.White, CircleShape)
+                            )
                         }
 
-                        // Screen flash overlay for front camera
+                        // Screen Flash Overlay
                         if (screenFlash) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color(0xFFFFFAF0))
+                                    .background(Color.White)
                             )
                         }
 
-                        // Shutter flash animation
-                        ShutterFlashOverlay(visible = shutterAnim)
-
-                        // Loading spinner
-                        if (isCapturingPhoto) {
+                        // Shutter Blackout Flash
+                        if (shutterAnim) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color(0x55000000)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(color = AccentAmber, strokeWidth = 3.dp)
-                            }
+                                    .background(Color(0xCC000000))
+                            )
                         }
                     }
 
-                    // Notification banner
-                    AnimatedVisibility(
-                        visible = successToast != null,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    // 3. BOTTOM DECK: RESOLUTION SELECTOR, MODE SWITCH, SHUTTER & GALLERY
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        successToast?.let { msg ->
+                        // Quick 3-Choice Resolution Selector (0.3 MP, 0.4 MP Default, 1.2 MP)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(DarkCardSurface)
+                                .border(1.dp, DarkBorder, RoundedCornerShape(14.dp))
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ResolutionPill(
+                                label = "0.3 MP",
+                                selected = settings.resolution == ResolutionOption.MP_0_3,
+                                onClick = { onSettingsChanged(settings.copy(resolution = ResolutionOption.MP_0_3)) },
+                                modifier = Modifier.weight(1f),
+                                testTag = "quick_res_0_3"
+                            )
+                            ResolutionPill(
+                                label = "0.4 MP",
+                                selected = settings.resolution == ResolutionOption.MP_0_4,
+                                onClick = { onSettingsChanged(settings.copy(resolution = ResolutionOption.MP_0_4)) },
+                                modifier = Modifier.weight(1f),
+                                testTag = "quick_res_0_4"
+                            )
+                            ResolutionPill(
+                                label = "1.2 MP",
+                                selected = settings.resolution == ResolutionOption.MP_1_2,
+                                onClick = { onSettingsChanged(settings.copy(resolution = ResolutionOption.MP_1_2)) },
+                                modifier = Modifier.weight(1f),
+                                testTag = "quick_res_1_2"
+                            )
+                        }
+
+                        // Photo / Video Mode Selector Pill
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 40.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ModeSwitchPill(
+                                text = "PHOTO",
+                                active = !isVideoMode,
+                                onClick = { isVideoMode = false },
+                                testTag = "photo_mode_btn"
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            ModeSwitchPill(
+                                text = "VIDEO",
+                                active = isVideoMode,
+                                onClick = { isVideoMode = true },
+                                testTag = "video_mode_btn"
+                            )
+                        }
+
+                        // Toast banner if photo captured
+                        AnimatedVisibility(
+                            visible = successToast != null,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .padding(bottom = 6.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color(0xEE1A1A24))
-                                    .border(1.dp, AccentAmber, RoundedCornerShape(16.dp))
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(DarkCardPrimary)
+                                    .padding(vertical = 6.dp, horizontal = 12.dp),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = msg,
-                                    color = AccentAmber,
+                                    text = successToast ?: "",
+                                    color = TextPrimary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                    }
 
-                    // 3. BOTTOM CONTROL DECK
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // Mode Switcher Pill [ PHOTO | VIDEO ]
-                        LuxuryModeSwitcher(
-                            isVideoMode = isVideoMode,
-                            onModeChanged = { videoMode ->
-                                if (videoMode && !hasAudioPermission && settings.recordAudio) {
-                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                }
-                                isVideoMode = videoMode
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Main Shutter Row: [ GALLERY ] [ SHUTTER ] [ DATE TOGGLE ]
+                        // Main Shutter Deck: [ GALLERY ] [ SHUTTER / RECORD ] [ IMPORT ]
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceAround,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Left: Latest photo thumbnail
+                            // Left: Gallery Thumbnail
                             Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(DarkCardSurface)
+                                    .border(1.dp, DarkBorder, RoundedCornerShape(14.dp))
+                                    .clickable(onClick = onOpenGallery)
                                     .testTag("gallery_thumbnail_btn")
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color(0x66222230))
-                                    .border(1.dp, GlassBorderRefined, RoundedCornerShape(16.dp))
-                                    .clickable(onClick = onOpenGallery),
-                                contentAlignment = Alignment.Center
                             ) {
                                 if (latestMedia != null) {
                                     AsyncImage(
@@ -518,73 +496,160 @@ fun CameraScreen(
                                             .data(latestMedia.uri)
                                             .crossfade(true)
                                             .build(),
-                                        contentDescription = "Gallery",
+                                        contentDescription = "Latest capture",
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 } else {
-                                    Icon(
-                                        imageVector = Icons.Default.AddPhotoAlternate,
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ic_sasuke_mark),
                                         contentDescription = "Gallery",
-                                        tint = TextMuted,
-                                        modifier = Modifier.size(24.dp)
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(4.dp)
+                                            .clip(RoundedCornerShape(10.dp))
                                     )
                                 }
                             }
 
-                            // Center: Machined Luxury Shutter Button
-                            LuxuryShutterButton(
-                                isVideoMode = isVideoMode,
-                                isRecording = isRecording,
-                                enabled = !isCapturingPhoto,
-                                onClick = {
-                                    if (isVideoMode) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        if (isRecording) {
-                                            cameraManager.stopRecording()
-                                        } else {
-                                            cameraManager.startRecording(
-                                                hasAudioPermission = hasAudioPermission,
-                                                settings = settings,
-                                                onRecordingStarted = {},
-                                                onRecordingSaved = { uri, filename ->
-                                                    successToast = "Saved $filename"
-                                                },
-                                                onError = { err ->
-                                                    Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                            // Center: Shutter or Video Record Button
+                            if (isVideoMode) {
+                                // Video Record Button
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(76.dp)
+                                        .clip(CircleShape)
+                                        .background(DarkCardSurface)
+                                        .border(2.5.dp, if (isRecording) RecordRed else TextPrimary, CircleShape)
+                                        .clickable {
+                                            if (isRecording) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                cameraManager.stopRecording()
+                                            } else {
+                                                if (!hasAudioPermission) {
+                                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                                 }
-                                            )
-                                        }
-                                    } else {
-                                        if (settings.soundEnabled) {
-                                            actionSound.play(MediaActionSound.SHUTTER_CLICK)
-                                        }
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        isCapturingPhoto = true
-                                        cameraManager.takePhoto(
-                                            settings = settings,
-                                            onCaptureSuccess = { uri, filename, width, height ->
-                                                isCapturingPhoto = false
-                                                successToast = "$filename • $width×$height"
-                                            },
-                                            onError = { err ->
-                                                isCapturingPhoto = false
-                                                Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                cameraManager.startRecording(
+                                                    hasAudioPermission = hasAudioPermission,
+                                                    settings = settings,
+                                                    onRecordingStarted = {
+                                                        successToast = "Recording clip..."
+                                                    },
+                                                    onRecordingSaved = { uri, filename ->
+                                                        successToast = "Saved $filename"
+                                                    },
+                                                    onError = { err ->
+                                                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                                    }
+                                                )
                                             }
+                                        }
+                                        .testTag("record_video_button")
+                                ) {
+                                    if (isRecording) {
+                                        // Red square
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(RecordRed)
+                                        )
+                                    } else {
+                                        // Red circle
+                                        Box(
+                                            modifier = Modifier
+                                                .size(54.dp)
+                                                .clip(CircleShape)
+                                                .background(RecordRed)
                                         )
                                     }
                                 }
-                            )
+                            } else {
+                                // Photo Shutter Button (Apple-style dual circle)
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(76.dp)
+                                        .clip(CircleShape)
+                                        .background(DarkCardSurface)
+                                        .border(3.dp, Color.White, CircleShape)
+                                        .clickable {
+                                            if (!isCapturingPhoto) {
+                                                if (settings.soundEnabled) {
+                                                    actionSound.play(MediaActionSound.SHUTTER_CLICK)
+                                                }
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                isCapturingPhoto = true
+                                                cameraManager.takePhoto(
+                                                    settings = settings,
+                                                    onCaptureSuccess = { uri, filename, width, height ->
+                                                        isCapturingPhoto = false
+                                                        successToast = "$filename • $width×$height"
+                                                    },
+                                                    onError = { err ->
+                                                        isCapturingPhoto = false
+                                                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                                    }
+                                                )
+                                            }
+                                        }
+                                        .testTag("shutter_button")
+                                ) {
+                                    if (isCapturingPhoto) {
+                                        CircularProgressIndicator(
+                                            color = SlateBlue,
+                                            modifier = Modifier.size(36.dp),
+                                            strokeWidth = 3.dp
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(60.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White)
+                                        )
+                                    }
+                                }
+                            }
 
-                            // Right: Instant Date Toggle Pill
-                            LuxuryGlassButton(
-                                text = if (settings.dateStampEnabled) "DATE ON" else "DATE OFF",
-                                active = settings.dateStampEnabled,
-                                accentColor = AccentAmber,
-                                onClick = {
-                                    onSettingsChanged(settings.copy(dateStampEnabled = !settings.dateStampEnabled))
-                                },
-                                testTag = "date_quick_toggle"
+                            // Right: Import Image/Video
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(DarkCardSurface)
+                                    .border(1.dp, DarkBorder, RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        photoPickerLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+                                        )
+                                    }
+                                    .testTag("import_media_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AddPhotoAlternate,
+                                    contentDescription = "Import",
+                                    tint = TextPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
+                        // Live recording timer if recording
+                        if (isRecording) {
+                            val mins = recordingSeconds / 60
+                            val secs = recordingSeconds % 60
+                            Text(
+                                text = String.format("REC %02d:%02d", mins, secs),
+                                color = RecordRed,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
                             )
                         }
                     }
@@ -594,17 +659,208 @@ fun CameraScreen(
     }
 }
 
-/**
- * Beautiful, human-designed dark glass permission prompt.
- */
 @Composable
-private fun LuxuryPermissionPrompt(
+private fun TopControlBar(
+    lensFacing: CameraLensFacing,
+    flashMode: CameraFlashMode,
+    onFlashToggle: () -> Unit,
+    onSwitchLens: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // App Identity with Sasuke Mark
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_sasuke_mark),
+                contentDescription = "Sasuke Mark",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .border(1.2.dp, SlateBlue, CircleShape)
+            )
+            Column {
+                Text(
+                    text = "SASUKE",
+                    color = TextPrimary,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = "RETROCAM",
+                    color = TextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+
+        // Action icons: Flash, Camera flip, Settings
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Flash toggle
+            IconButton(
+                onClick = onFlashToggle,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(DarkCardSurface)
+                    .border(1.dp, DarkBorder, CircleShape)
+                    .testTag("flash_toggle_btn")
+            ) {
+                val icon = when (flashMode) {
+                    CameraFlashMode.OFF -> Icons.Default.FlashOff
+                    CameraFlashMode.ON -> Icons.Default.FlashOn
+                    CameraFlashMode.AUTO -> Icons.Default.FlashAuto
+                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = "Flash",
+                    tint = if (flashMode != CameraFlashMode.OFF) Color(0xFFFFB703) else TextMuted,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            // Flip lens
+            IconButton(
+                onClick = onSwitchLens,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(DarkCardSurface)
+                    .border(1.dp, DarkBorder, CircleShape)
+                    .testTag("flip_camera_btn")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Cameraswitch,
+                    contentDescription = "Switch Camera",
+                    tint = TextPrimary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            // Settings
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(DarkCardSurface)
+                    .border(1.dp, DarkBorder, CircleShape)
+                    .testTag("settings_btn")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = TextPrimary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoomPill(
+    label: String,
+    onClick: () -> Unit,
+    testTag: String
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(Color(0xB30C0E12))
+            .border(0.8.dp, DarkBorder, CircleShape)
+            .clickable(onClick = onClick)
+            .testTag(testTag)
+    ) {
+        Text(
+            text = label,
+            color = TextPrimary,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp
+        )
+    }
+}
+
+@Composable
+private fun ResolutionPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    testTag: String
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .height(34.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) DarkCardPrimary else Color.Transparent)
+            .border(
+                1.dp,
+                if (selected) SlateBlue else Color.Transparent,
+                RoundedCornerShape(10.dp)
+            )
+            .clickable(onClick = onClick)
+            .testTag(testTag)
+    ) {
+        Text(
+            text = label,
+            color = if (selected) TextPrimary else TextSecondary,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
+private fun ModeSwitchPill(
+    text: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    testTag: String
+) {
+    Text(
+        text = text,
+        color = if (active) Color.White else TextMuted,
+        fontFamily = FontFamily.Monospace,
+        fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+        fontSize = 13.sp,
+        letterSpacing = 1.2.sp,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .testTag(testTag)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    )
+}
+
+@Composable
+private fun DarkPermissionPrompt(
     onGrantClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkCanvas)
+            .background(DarkBackground)
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -613,87 +869,69 @@ private fun LuxuryPermissionPrompt(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color(0xFF1E1E28), Color(0xFF12121A))
-                    )
-                )
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(24.dp))
+                .background(DarkCardSurface)
+                .border(1.dp, DarkBorder, RoundedCornerShape(24.dp))
                 .padding(28.dp)
         ) {
-            // Sasuke Avatar with luminous halo
-            Box(
-                contentAlignment = Alignment.Center,
+            Image(
+                painter = painterResource(id = R.drawable.ic_sasuke_mark),
+                contentDescription = "Sasuke",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(92.dp)
+                    .size(80.dp)
                     .clip(CircleShape)
-                    .background(Color(0x3300E5FF))
-                    .padding(4.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_sasuke_mark),
-                    contentDescription = "Sasuke",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape)
-                        .border(2.dp, AccentAmber, CircleShape)
-                )
-            }
+                    .border(2.dp, SlateBlue, CircleShape)
+            )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Text(
                 text = "SASUKE RETROCAM",
                 color = TextPrimary,
-                fontSize = 19.sp,
+                fontSize = 18.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
+                letterSpacing = 1.5.sp
             )
 
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "VINTAGE CCD CAMERA ENGINE",
-                color = AccentAmber,
+                text = "AUTHENTIC NOSTALGIC CAMERA",
+                color = TextSecondary,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.sp
             )
 
             Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "To capture authentic, low-resolution 0.4 MP nostalgic photos and retro videos with the Sasuke signature, grant camera permission.",
+                text = "To capture vintage low-resolution photos and retro videos with the permanent Sasuke signature, enable camera permission.",
                 color = TextMuted,
                 fontSize = 13.sp,
-                lineHeight = 19.sp,
+                lineHeight = 18.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(26.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
-                    .clip(RoundedCornerShape(23.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(Color(0xFFFFC107), AccentAmber)
-                        )
-                    )
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(DarkCardPrimary)
+                    .border(1.dp, SlateBlue, RoundedCornerShape(14.dp))
                     .clickable(onClick = onGrantClick)
                     .testTag("grant_camera_permission_button")
             ) {
                 Text(
-                    text = "ENABLE CAMERA",
-                    color = Color.Black,
+                    text = "ALLOW CAMERA ACCESS",
+                    color = TextPrimary,
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
                     letterSpacing = 1.sp
                 )

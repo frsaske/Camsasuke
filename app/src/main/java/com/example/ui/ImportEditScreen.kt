@@ -33,15 +33,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -49,7 +46,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,25 +65,22 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.camera.MediaStoreManager
 import com.example.camera.RetroImageProcessor
-import com.example.model.AspectRatioOption
 import com.example.model.CameraSettings
 import com.example.model.ResolutionOption
 import com.example.model.RetroPreset
-import com.example.ui.theme.GlassBackground
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.SasukeAmber
-import com.example.ui.theme.SasukeBlack
-import com.example.ui.theme.SasukeBorder
-import com.example.ui.theme.SasukeCharcoal
-import com.example.ui.theme.SasukeMuted
-import com.example.ui.theme.SasukeSilver
-import com.example.ui.theme.SasukeSurface
-import com.example.ui.theme.SasukeSurfaceVariant
+import com.example.ui.theme.DarkBackground
+import com.example.ui.theme.DarkBorder
+import com.example.ui.theme.DarkCardElevated
+import com.example.ui.theme.DarkCardPrimary
+import com.example.ui.theme.DarkCardSurface
+import com.example.ui.theme.SlateBlue
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import kotlin.math.roundToInt
 
 @Composable
 fun ImportEditScreen(
@@ -110,11 +103,8 @@ fun ImportEditScreen(
 
     // Adjustable retro parameters
     var selectedPreset by remember { mutableStateOf(currentSettings.preset) }
-    var filterIntensity by remember { mutableFloatStateOf(currentSettings.filterIntensity) }
-    var grainAmount by remember { mutableFloatStateOf(currentSettings.grainAmount) }
     var selectedResolution by remember { mutableStateOf(currentSettings.resolution) }
-    var selectedAspect by remember { mutableStateOf(currentSettings.aspectRatio) }
-    var dateStampEnabled by remember { mutableStateOf(false) }
+    var dateStampEnabled by remember { mutableStateOf(currentSettings.dateStampEnabled) }
 
     // Load original bitmap if photo
     LaunchedEffect(mediaUri) {
@@ -137,15 +127,12 @@ fun ImportEditScreen(
     }
 
     // Recompute preview bitmap whenever filters change
-    LaunchedEffect(originalBitmap, selectedPreset, filterIntensity, grainAmount, selectedResolution, selectedAspect, dateStampEnabled) {
+    LaunchedEffect(originalBitmap, selectedPreset, selectedResolution, dateStampEnabled) {
         val src = originalBitmap ?: return@LaunchedEffect
         withContext(Dispatchers.Default) {
             val settings = currentSettings.copy(
                 preset = selectedPreset,
-                filterIntensity = filterIntensity,
-                grainAmount = grainAmount,
                 resolution = selectedResolution,
-                aspectRatio = selectedAspect,
                 dateStampEnabled = dateStampEnabled
             )
             val processed = RetroImageProcessor.processImage(src, settings)
@@ -160,7 +147,7 @@ fun ImportEditScreen(
 
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = SasukeBlack
+        color = DarkBackground
     ) {
         Column(
             modifier = Modifier
@@ -171,7 +158,7 @@ fun ImportEditScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -182,20 +169,20 @@ fun ImportEditScreen(
                             .testTag("import_back_button")
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(GlassBackground)
-                            .border(1.dp, GlassBorder, CircleShape)
+                            .background(DarkCardSurface)
+                            .border(1.dp, DarkBorder, CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = SasukeSilver
+                            tint = TextPrimary
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             text = if (isVideo) "IMPORT VIDEO" else "RETRO PHOTO LAB",
-                            color = SasukeSilver,
+                            color = TextPrimary,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
@@ -205,7 +192,7 @@ fun ImportEditScreen(
                             val bmp = previewBitmap!!
                             Text(
                                 text = "${bmp.width} × ${bmp.height} • ${selectedPreset.title}",
-                                color = SasukeAmber,
+                                color = TextSecondary,
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -229,36 +216,38 @@ fun ImportEditScreen(
                                     )
                                     isSaving = false
                                     result.onSuccess { uri ->
-                                        Toast.makeText(context, "Saved $filename to Sasuke RetroCam", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Saved $filename", Toast.LENGTH_SHORT).show()
                                         onSaveSuccess(uri)
                                     }.onFailure { err ->
                                         Toast.makeText(context, "Save error: ${err.message}", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             } else {
-                                // Save imported video copy to Sasuke RetroCam
+                                // Save imported video copy
                                 withContext(Dispatchers.IO) {
                                     try {
-                                        val tempFile = File(context.cacheDir, "import_video_${System.currentTimeMillis()}.mp4")
+                                        val tempFile = File(context.cacheDir, "imported_${System.currentTimeMillis()}.mp4")
                                         context.contentResolver.openInputStream(mediaUri)?.use { input ->
-                                            tempFile.outputStream().use { out ->
-                                                input.copyTo(out)
+                                            tempFile.outputStream().use { output ->
+                                                input.copyTo(output)
                                             }
                                         }
-                                        val result = mediaStoreManager.saveVideoFile(tempFile)
-                                        withContext(Dispatchers.Main) {
-                                            isSaving = false
-                                            result.onSuccess { uri ->
-                                                Toast.makeText(context, "Saved video copy to Sasuke RetroCam", Toast.LENGTH_SHORT).show()
+                                        val saveResult = mediaStoreManager.saveVideoFile(tempFile)
+                                        isSaving = false
+                                        saveResult.onSuccess { uri ->
+                                            withContext(Dispatchers.Main) {
+                                                Toast.makeText(context, "Imported video saved", Toast.LENGTH_SHORT).show()
                                                 onSaveSuccess(uri)
-                                            }.onFailure { err ->
-                                                Toast.makeText(context, "Save error: ${err.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }.onFailure { err ->
+                                            withContext(Dispatchers.Main) {
+                                                Toast.makeText(context, "Import failed: ${err.message}", Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     } catch (e: Exception) {
+                                        isSaving = false
                                         withContext(Dispatchers.Main) {
-                                            isSaving = false
-                                            Toast.makeText(context, "Video import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -266,45 +255,46 @@ fun ImportEditScreen(
                         }
                     },
                     enabled = !isLoading && !isSaving,
-                    colors = ButtonDefaults.buttonColors(containerColor = SasukeAmber),
-                    modifier = Modifier.testTag("save_retro_copy_button")
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DarkCardPrimary,
+                        contentColor = TextPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.border(1.dp, SlateBlue, RoundedCornerShape(12.dp))
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(
-                            color = SasukeBlack,
+                            color = TextPrimary,
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Icon(
-                            imageVector = Icons.Default.Save,
-                            contentDescription = null,
-                            tint = SasukeBlack,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Save Copy",
-                            color = SasukeBlack,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("SAVE", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
 
-            // Media Preview Center Area
+            // Preview Area (Fixed 4:3)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(8.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(SasukeCharcoal),
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(DarkCardSurface)
+                    .border(1.dp, DarkBorder, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(color = SasukeAmber)
+                    CircularProgressIndicator(color = SlateBlue)
                 } else if (isVideo) {
                     AndroidView(
                         factory = { ctx ->
@@ -326,25 +316,32 @@ fun ImportEditScreen(
                     if (bmp != null) {
                         Image(
                             bitmap = bmp.asImageBitmap(),
-                            contentDescription = "Retro Edited Preview",
+                            contentDescription = "Retro Preview",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        Text(text = "Failed to load image", color = SasukeMuted)
+                        Text("Failed to load image", color = TextMuted)
                     }
                 }
             }
 
-            // Controls for photo filtering
+            // Bottom Filter & Setting Controls (for photos)
             if (!isVideo) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(SasukeSurface)
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Presets Row
+                    // Preset Selector
+                    Text(
+                        text = "RETRO PRESET",
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -352,146 +349,86 @@ fun ImportEditScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         RetroPreset.values().forEach { preset ->
+                            val isSelected = selectedPreset == preset
                             Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(if (selectedPreset == preset) SasukeAmber else SasukeSurfaceVariant)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) DarkCardPrimary else DarkCardSurface)
+                                    .border(1.dp, if (isSelected) SlateBlue else DarkBorder, RoundedCornerShape(10.dp))
                                     .clickable { selectedPreset = preset }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .padding(horizontal = 12.dp, vertical = 7.dp)
                             ) {
                                 Text(
                                     text = preset.title,
-                                    color = if (selectedPreset == preset) SasukeBlack else SasukeSilver,
+                                    color = if (isSelected) TextPrimary else TextSecondary,
+                                    fontFamily = FontFamily.Monospace,
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Quick toggles: Resolution, Aspect Ratio, Date Stamp
+                    // Resolution Pills (0.3, 0.4, 1.2)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(DarkCardSurface)
+                            .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        ResolutionOption.values().forEach { res ->
+                            val isSelected = selectedResolution == res
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(32.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) DarkCardPrimary else Color.Transparent)
+                                    .border(1.dp, if (isSelected) SlateBlue else Color.Transparent, RoundedCornerShape(8.dp))
+                                    .clickable { selectedResolution = res }
+                            ) {
+                                Text(
+                                    text = res.label,
+                                    color = if (isSelected) TextPrimary else TextSecondary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    // Quick Date Stamp Toggle Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Resolution chip
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(SasukeSurfaceVariant)
-                                .clickable {
-                                    val resolutions = ResolutionOption.values()
-                                    val nextIdx = (selectedResolution.ordinal + 1) % resolutions.size
-                                    selectedResolution = resolutions[nextIdx]
-                                }
-                                .padding(horizontal = 8.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = selectedResolution.label,
-                                color = SasukeAmber,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // Aspect Ratio chip
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(SasukeSurfaceVariant)
-                                .clickable {
-                                    selectedAspect = when (selectedAspect) {
-                                        AspectRatioOption.RATIO_4_3 -> AspectRatioOption.RATIO_16_9
-                                        AspectRatioOption.RATIO_16_9 -> AspectRatioOption.RATIO_1_1
-                                        AspectRatioOption.RATIO_1_1 -> AspectRatioOption.RATIO_4_3
-                                    }
-                                }
-                                .padding(horizontal = 8.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = selectedAspect.label,
-                                color = SasukeSilver,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // Date stamp toggle
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Date Stamp",
-                                color = SasukeSilver,
-                                fontSize = 11.sp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Switch(
-                                checked = dateStampEnabled,
-                                onCheckedChange = { dateStampEnabled = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = SasukeBlack,
-                                    checkedTrackColor = SasukeAmber
-                                ),
-                                modifier = Modifier.size(width = 38.dp, height = 24.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Intensity slider
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
                         Text(
-                            text = "Effect",
-                            color = SasukeMuted,
-                            fontSize = 11.sp,
-                            modifier = Modifier.width(42.dp)
-                        )
-                        Slider(
-                            value = filterIntensity,
-                            onValueChange = { filterIntensity = it },
-                            valueRange = 0f..1f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = SasukeAmber,
-                                activeTrackColor = SasukeAmber
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "${(filterIntensity * 100).toInt()}%",
-                            color = SasukeAmber,
-                            fontSize = 11.sp,
+                            text = "DATE STAMP",
+                            color = TextPrimary,
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.width(36.dp)
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Switch(
+                            checked = dateStampEnabled,
+                            onCheckedChange = { dateStampEnabled = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = SlateBlue,
+                                uncheckedThumbColor = Color(0xFF64748B),
+                                uncheckedTrackColor = Color(0xFF1E232E)
+                            )
                         )
                     }
-                }
-            } else {
-                // Video info card
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SasukeSurface)
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Import Video to Sasuke RetroCam",
-                        color = SasukeSilver,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Tap 'Save Copy' above to add this video to your Sasuke RetroCam album as Sasuke-Video-XXX.mp4.",
-                        color = SasukeMuted,
-                        fontSize = 12.sp
-                    )
                 }
             }
         }

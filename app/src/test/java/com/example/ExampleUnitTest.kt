@@ -1,38 +1,44 @@
 package com.example
 
-import com.example.model.AspectRatioOption
+import com.example.model.CameraSettings
 import com.example.model.ResolutionOption
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 class ExampleUnitTest {
     @Test
-    fun testRetroResolution4_3_matchesApprox400kPixels() {
-        val targetPixels = ResolutionOption.MP_0_4.targetPixels.toDouble()
-        val ratio = AspectRatioOption.RATIO_4_3.ratioFloat.toDouble()
-        val targetHeight = sqrt(targetPixels / ratio).roundToInt()
-        val targetWidth = (targetHeight * ratio).roundToInt()
-        val totalPixels = targetWidth * targetHeight
+    fun testTargetResolution0_4MP_matchesApprox400kPixels() {
+        val res = ResolutionOption.MP_0_4
+        val totalPixels = res.width4x3 * res.height4x3
 
-        // Target: approximately 730 × 548 (approx 400,000 pixels)
-        assertTrue(targetWidth in 728..732)
-        assertTrue(targetHeight in 546..550)
+        // Target: 730 × 548 (approx 400,000 pixels)
+        assertEquals(730, res.width4x3)
+        assertEquals(548, res.height4x3)
         assertTrue(totalPixels in 395_000..405_000)
     }
 
     @Test
-    fun testMpOptionsExist() {
-        assertEquals(7, ResolutionOption.values().size)
-        assertEquals("0.3 MP", ResolutionOption.MP_0_3.label)
+    fun testStrictlyThreeResolutions() {
+        val options = ResolutionOption.values()
+        assertEquals(3, options.size)
         assertEquals("0.4 MP", ResolutionOption.MP_0_4.label)
-        assertEquals("0.5 MP", ResolutionOption.MP_0_5.label)
-        assertEquals("0.9 MP", ResolutionOption.MP_0_9.label)
-        assertEquals("1 MP", ResolutionOption.MP_1_0.label)
-        assertEquals("2 MP", ResolutionOption.MP_2_0.label)
-        assertEquals("3 MP", ResolutionOption.MP_3_0.label)
+        assertEquals("0.3 MP", ResolutionOption.MP_0_3.label)
+        assertEquals("1.2 MP", ResolutionOption.MP_1_2.label)
+    }
+
+    @Test
+    fun testPermanentWatermarkString() {
+        // Must be the exact unicode string requested by user
+        assertEquals("ѕαѕυкє", CameraSettings.PERMANENT_WATERMARK)
+    }
+
+    @Test
+    fun testDefaultSettings() {
+        val settings = CameraSettings()
+        assertEquals(ResolutionOption.MP_0_4, settings.resolution)
+        assertEquals(ResolutionOption.MP_0_4, settings.videoResolution)
+        assertTrue(settings.dateStampEnabled)
     }
 
     @Test

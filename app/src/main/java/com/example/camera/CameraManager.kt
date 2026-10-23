@@ -149,8 +149,9 @@ class CameraManager(
             CameraSelector.DEFAULT_FRONT_CAMERA
         }
 
-        // Preview
+        // Preview with low resolution target (640x480) for authentic retro live viewfinder
         preview = Preview.Builder()
+            .setTargetResolution(android.util.Size(640, 480))
             .build()
             .also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
@@ -163,7 +164,7 @@ class CameraManager(
 
         applyFlashMode()
 
-        // VideoCapture
+        // VideoCapture targeting retro low resolution (SD / 480p)
         val recorder = Recorder.Builder()
             .setQualitySelector(
                 QualitySelector.from(
@@ -274,8 +275,7 @@ class CameraManager(
                             // Apply retro processing
                             val processed = RetroImageProcessor.processImage(
                                 source = bitmap,
-                                settings = settings,
-                                isFrontCamera = isFront
+                                settings = settings
                             )
 
                             // Save to MediaStore

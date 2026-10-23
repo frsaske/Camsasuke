@@ -23,14 +23,13 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,33 +51,30 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.model.MediaItem
-import com.example.ui.theme.GlassBackground
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.SasukeAmber
-import com.example.ui.theme.SasukeBlack
-import com.example.ui.theme.SasukeBorder
-import com.example.ui.theme.SasukeCharcoal
-import com.example.ui.theme.SasukeMuted
-import com.example.ui.theme.SasukeRed
-import com.example.ui.theme.SasukeSilver
-import com.example.ui.theme.SasukeSurface
+import com.example.ui.theme.DarkBackground
+import com.example.ui.theme.DarkBorder
+import com.example.ui.theme.DarkCardElevated
+import com.example.ui.theme.DarkCardSurface
+import com.example.ui.theme.SlateBlue
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 
 @Composable
 fun GalleryScreen(
     mediaList: List<MediaItem>,
     isLoading: Boolean,
-    onItemClick: (MediaItem) -> Unit,
+    onItemClick: (Int) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BackHandler { onBack() }
-    val context = LocalContext.current
     val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = SasukeBlack
+        color = DarkBackground
     ) {
         Column(
             modifier = Modifier
@@ -89,93 +85,103 @@ fun GalleryScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.testTag("gallery_back_button")
+                    modifier = Modifier
+                        .testTag("gallery_back_button")
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(DarkCardSurface)
+                        .border(1.dp, DarkBorder, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = SasukeSilver
+                        tint = TextPrimary
                     )
                 }
-                Spacer(modifier = Modifier.width(4.dp))
+
+                Spacer(modifier = Modifier.width(14.dp))
+
                 Column {
                     Text(
                         text = "SASUKE GALLERY",
-                        color = SasukeSilver,
-                        fontSize = 17.sp,
+                        color = TextPrimary,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = 1.sp
                     )
                     Text(
-                        text = "${mediaList.size} items in Sasuke RetroCam",
-                        color = SasukeAmber,
+                        text = "${mediaList.size} items • 4:3 Retro Captures",
+                        color = TextSecondary,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
-            HorizontalDivider(color = SasukeBorder)
+            HorizontalDivider(
+                color = DarkBorder,
+                thickness = 1.dp
+            )
 
+            // Content
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = SasukeAmber)
+                    CircularProgressIndicator(
+                        color = SlateBlue,
+                        modifier = Modifier.size(36.dp)
+                    )
                 }
             } else if (mediaList.isEmpty()) {
-                // Empty state with retro aesthetic
+                // Empty state
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier.padding(32.dp)
                     ) {
                         Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .size(72.dp)
                                 .clip(CircleShape)
-                                .background(SasukeSurface)
-                                .border(1.dp, SasukeBorder, CircleShape),
-                            contentAlignment = Alignment.Center
+                                .background(DarkCardSurface)
+                                .border(1.dp, DarkBorder, CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CameraAlt,
                                 contentDescription = null,
-                                tint = SasukeAmber,
-                                modifier = Modifier.size(36.dp)
+                                tint = TextMuted,
+                                modifier = Modifier.size(32.dp)
                             )
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "NO PHOTOS CAPTURED YET",
-                            color = SasukeSilver,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "NO CAPTURES YET",
+                            color = TextPrimary,
                             fontFamily = FontFamily.Monospace,
-                            letterSpacing = 1.sp
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = "Switch back to the camera and press the silver shutter button to capture your first 0.4 MP nostalgic photo.",
-                            color = SasukeMuted,
+                            text = "Snap your first low-res retro photo or record a vintage clip.",
+                            color = TextMuted,
                             fontSize = 12.sp,
-                            lineHeight = 18.sp,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
@@ -191,10 +197,10 @@ fun GalleryScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(mediaList, key = { it.id }) { item ->
+                    itemsIndexed(mediaList, key = { _, item -> item.id }) { index, item ->
                         GalleryItemThumbnail(
                             item = item,
-                            onClick = { onItemClick(item) }
+                            onClick = { onItemClick(index) }
                         )
                     }
                 }
@@ -213,8 +219,9 @@ private fun GalleryItemThumbnail(
     Box(
         modifier = Modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(6.dp))
-            .background(SasukeCharcoal)
+            .clip(RoundedCornerShape(8.dp))
+            .background(DarkCardElevated)
+            .border(0.8.dp, DarkBorder, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
     ) {
         AsyncImage(
@@ -234,47 +241,28 @@ private fun GalleryItemThumbnail(
                     .align(Alignment.BottomEnd)
                     .padding(4.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xCC000000))
+                    .background(Color(0xCC0C0E12))
                     .padding(horizontal = 4.dp, vertical = 2.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Video",
-                        tint = SasukeAmber,
+                        tint = TextPrimary,
                         modifier = Modifier.size(10.dp)
                     )
                     if (item.durationMs > 0) {
                         val sec = item.durationMs / 1000
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
-                            text = String.format("%02d:%02d", sec / 60, sec % 60),
-                            color = Color.White,
+                            text = "${sec}s",
+                            color = TextPrimary,
                             fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
-            }
-        }
-
-        // Low resolution badge (if retro 0.4 MP)
-        if (!item.isVideo && item.megapixelsText.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(4.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(Color(0x99000000))
-                    .padding(horizontal = 4.dp, vertical = 1.dp)
-            ) {
-                Text(
-                    text = item.megapixelsText,
-                    color = SasukeAmber,
-                    fontSize = 8.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
     }
